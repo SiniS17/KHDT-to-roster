@@ -7,6 +7,36 @@ each GitHub release `vX.Y.Z` to match `APP_VERSION` in `config.py`.
 ## [Unreleased]
 - (nothing yet)
 
+## [1.0.3] - 2026-08-31
+
+### Fixed
+- `combine_markers` no longer produces a doubled/nested `H` prefix when a
+  roster cell already contains a course this run would also add (e.g. from
+  re-running the tool on an already-marked roster). Markers are now
+  deduplicated at the individual-course level instead of by comparing whole
+  marker strings, so combining is idempotent regardless of how many times
+  a cell gets processed.
+- A malformed cell left over from before this fix (a nested `H` from the
+  old duplicate-prefix bug) is automatically normalized back to a single
+  `H` prefix the next time it's processed, even if no new course is being
+  added that day.
+- Removed all remaining "AMOS Validator" branding from `update.py`
+  (docstring, updater filenames, `User-Agent` header, background-thread
+  name) and a stale example in a `config.py` comment — none of it applied
+  to this software.
+
+### Added
+- New `already_marked` run stat and log event (`LOG_EVENT_LABELS
+  ["already_marked"]`, "Đã có sẵn, bỏ qua"): when a course this run would
+  add is already present on a cell, it's recorded in the log workbook,
+  console output, and GUI summary instead of being silently skipped or
+  silently duplicated.
+
+### Changed
+- `khdt_to_roster.spec` now builds into an `EXE/` folder next to the spec
+  file instead of the default `dist/`, and deletes the intermediate
+  `build/` folder automatically once the build finishes.
+
 ## [1.0.0] - 2026-08-29
 Initial release.
 

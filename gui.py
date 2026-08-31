@@ -385,6 +385,7 @@ class MainWindow(QMainWindow):
             f"Cells marked: {stats['marked']}\n"
             f"Weekend N cells: {stats['weekend_n']}\n"
             f"Overlaps combined: {stats['overlaps_combined']}\n"
+            f"Already marked: {stats['already_marked']}\n"
             f"Conflicts noted: {stats['conflicts']}\n"
             f"IDs not in roster: {stats['no_id_match']}\n"
             f"No date overlap: {stats['no_date_overlap']}\n"

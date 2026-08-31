@@ -357,34 +357,64 @@ def _marker_sort_key(marker):
     return 2
 
 
+def marker_parts(marker):
+    """
+    Split a marker string into its individual course parts.
+
+    Strips the shared "H " prefix (if present) once at the front, then
+    splits the remainder on "-" to recover each course. Also strips any
+    stray leading prefix from an individual part, so this works whether
+    ``marker`` is a single course (``"H VHNT SÁNG"``), an already-combined
+    multi-course string from a previous run (``"H VHNT SÁNG-VHDN
+    CHIỀU"``), or - defensively - an older malformed one with a nested
+    prefix (``"H VHNT SÁNG-H VHDN CHIỀU"``).
+    """
+    if not marker:
+        return []
+    marker = re.sub(r"\s+", " ", str(marker).strip())
+    prefix = f"{MARKER_PREFIX} "
+    body = marker[len(prefix):] if marker.upper().startswith(prefix.upper()) else marker
+    parts = []
+    for part in body.split("-"):
+        part = part.strip()
+        if not part:
+            continue
+        if part.upper().startswith(prefix.upper()):
+            part = part[len(prefix):].strip()
+        if part:
+            parts.append(part)
+    return parts
+
+
 def combine_markers(markers):
     """
     Combine course markers without repeating the common "H" prefix.
 
-    Markers are deduplicated and ordered by session so that a morning and an
-    afternoon course are easy to read in one cell.
+    Deduplicates at the level of individual courses, not whole marker
+    strings: each marker is broken into its parts via marker_parts()
+    before comparison, so an already-combined multi-course string (e.g.
+    one left over from a previous run of this tool) is recognized
+    correctly instead of being treated as one big opaque value. This
+    makes the function idempotent - if a roster cell already contains
+    this tool's own output and the same course gets marked again, it is
+    recognized as a duplicate and merged rather than appended as a new,
+    nested entry. Parts are ordered by session so morning and afternoon
+    courses read in a fixed order.
     """
     unique = []
     seen = set()
     for marker in markers:
-        if not marker:
-            continue
-        marker = re.sub(r"\s+", " ", str(marker).strip())
-        key = marker.casefold()
-        if key not in seen:
-            seen.add(key)
-            unique.append(marker)
+        for part in marker_parts(marker):
+            key = part.casefold()
+            if key not in seen:
+                seen.add(key)
+                unique.append(part)
 
-    unique.sort(key=_marker_sort_key)
     if not unique:
         return ""
 
-    prefix = f"{MARKER_PREFIX} "
-    parts = [
-        marker[len(prefix):].strip() if marker.upper().startswith(prefix.upper()) else marker
-        for marker in unique
-    ]
-    return f"{MARKER_PREFIX} {'-'.join(parts)}".strip()
+    unique.sort(key=_marker_sort_key)
+    return f"{MARKER_PREFIX} {'-'.join(unique)}".strip()
 
 
 def record_log_event(event_log, name, employee_id, event, reason, event_date=None, details=None):
@@ -580,6 +610,7 @@ def mark_roster(khdt_rows, roster_path, output_path, force=False, log=print, eve
         "no_id_match": 0,
         "no_date_overlap": 0,
         "name_mismatch": 0,
+        "already_marked": 0,
     }
     assignments = {}
 
@@ -773,7 +804,36 @@ def mark_roster(khdt_rows, roster_path, output_path, force=False, log=print, eve
             )
         elif existing not in (None, ""):
             if is_course_marker(existing):
+                existing_parts = {p.casefold() for p in marker_parts(existing)}
+                new_parts = marker_parts(combined)
+                already_present = [p for p in new_parts if p.casefold() in existing_parts]
+
+                if already_present:
+                    stats["already_marked"] += 1
+                    record_log_event(
+                        event_log,
+                        entries[0]["name"],
+                        entries[0]["id"],
+                        LOG_EVENT_LABELS["already_marked"],
+                        f"Already present, not duplicated: {', '.join(already_present)}",
+                        event_date=d,
+                        details=f"Existing cell: {existing}; KHDT rows: {', '.join(str(item['row']) for item in entries)}",
+                    )
+                    log(
+                        f"[ALREADY MARKED] {entries[0]['name']} ({entries[0]['id']}) {d}: "
+                        f"{', '.join(already_present)} already present in '{existing}' - skipped, not duplicated "
+                        f"(KHDT rows: {', '.join(str(item['row']) for item in entries)})"
+                    )
+
+                # combine_markers(existing + new) naturally reduces to just
+                # the existing courses, canonicalized, when every new
+                # course is already present - so this also self-heals a
+                # malformed cell (e.g. a nested "H" left over from before
+                # this fix) even when nothing new is being added.
                 combined_with_existing = combine_markers([existing, combined])
+                if combined_with_existing == existing:
+                    # Genuinely nothing to change - skip the write.
+                    continue
             elif is_red_n(cell):
                 stats["conflicts"] += 1
                 record_log_event(
@@ -910,6 +970,7 @@ def write_log_workbook(log_path, event_log, log_lines, stats):
         ("Cells marked", stats["marked"]),
         ("Weekend N cells", stats["weekend_n"]),
         ("Overlaps combined", stats["overlaps_combined"]),
+        ("Already marked (skipped)", stats["already_marked"]),
         ("Conflicts noted", stats["conflicts"]),
         ("IDs not in roster", stats["no_id_match"]),
         ("No date overlap", stats["no_date_overlap"]),
@@ -985,6 +1046,7 @@ def run(
     log(f"Cells marked        : {stats['marked']}")
     log(f"Weekend N cells     : {stats['weekend_n']}")
     log(f"Overlaps combined   : {stats['overlaps_combined']}")
+    log(f"Already marked      : {stats['already_marked']}  (course already on the cell, not duplicated)")
     log(f"Conflicts noted     : {stats['conflicts']}  (use --force to overwrite instead)")
     log(f"ID not in roster    : {stats['no_id_match']}  (not a member of this team, or ID typo)")
     log(f"No date overlap     : {stats['no_date_overlap']}  (training dates outside this roster's month)")
@@ -1071,6 +1133,7 @@ def main():
             f"Marked: {stats['marked']}\n"
             f"Weekend N cells: {stats['weekend_n']}\n"
             f"Overlaps combined: {stats['overlaps_combined']}\n"
+            f"Already marked: {stats['already_marked']}\n"
             f"Conflicts noted: {stats['conflicts']}\n"
             f"ID not in roster: {stats['no_id_match']}\n"
             f"No date overlap: {stats['no_date_overlap']}\n"

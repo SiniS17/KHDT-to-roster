@@ -5,7 +5,7 @@
 # Bump this string before each release and tag the GitHub
 # release with the same value prefixed by "v" (e.g. "v1.0.0").
 # ------------------------------------------------------------
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 APP_LAST_UPDATE = "31 AUG 26"
 
 # ------------------------------------------------------------
@@ -71,4 +71,5 @@ LOG_EVENT_LABELS = {
     "name_mismatch": "Sai tên",
     "skipped": "Bỏ qua",
     "no_date_overlap": "Ngoài khoảng ngày",
+    "already_marked": "Đã có sẵn, bỏ qua",
 }
