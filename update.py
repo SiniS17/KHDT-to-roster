@@ -1,5 +1,5 @@
 """
-AMOS Validator – Auto-Updater
+KHDT to Roster – Auto-Updater
 ==============================
 Checks GitHub Releases for a newer version of the application bundle and
 applies it without requiring the user to manually download anything.
@@ -9,7 +9,7 @@ How it works (Windows EXE)
 1. GET https://api.github.com/repos/<OWNER>/<REPO>/releases/latest
 2. Compare the release tag (e.g. "v1.2.0") with APP_VERSION in config.py
 3. If newer: download the ZIP bundle next to the current EXE
-4. Extract the bundle and write a tiny _amos_updater.bat that waits for the
+4. Extract the bundle and write a tiny _khdt_updater.bat that waits for the
    current process to exit, copies the files, and restarts
 5. Launch the bat detached → exit this process → bat runs → new EXE starts
 
@@ -19,8 +19,8 @@ GitHub setup (one-time)
 2. Set GITHUB_REPO = "your-username/your-repo" in config.py
 3. For every new release:
     - Tag the release  "v1.x.y"  (must match the semver format)
-    - Upload a ZIP containing the complete `AMOS Validation/` folder as a
-      release asset (for example `AMOS_Validation_v1.1.0.zip`)
+    - Upload a ZIP containing the complete `KHDT-to-Roster/` folder as a
+      release asset (for example `KHDT-to-Roster_v1.1.0.zip`)
    Done. Users get the update automatically on next run.
 
 Source-mode behaviour
@@ -90,7 +90,7 @@ def is_newer(remote_tag: str, local_version: str) -> bool:
 
 GITHUB_API = "https://api.github.com/repos/{repo}/releases/latest"
 _HEADERS = {
-    "User-Agent": "AMOS-Validator-Updater/1.0",
+    "User-Agent": "KHDT-to-Roster-Updater/1.0",
     "Accept": "application/vnd.github+json",
 }
 
@@ -248,7 +248,7 @@ def _extract_update_zip(
     current_exe: Path,
 ) -> tuple[Path, Path]:
     """Extract a release ZIP safely and return its root and temp folder."""
-    extract_dir = archive_path.parent / f"_amos_update_{os.getpid()}"
+    extract_dir = archive_path.parent / f"_khdt_update_{os.getpid()}"
     shutil.rmtree(extract_dir, ignore_errors=True)
     extract_dir.mkdir(parents=True, exist_ok=True)
 
@@ -271,8 +271,8 @@ def _extract_update_zip(
                     shutil.copyfileobj(source, destination)
 
         # The release may contain either:
-        #   AMOS Validation/AMOS Validation.exe
-        # or a flat bundle with AMOS Validation.exe at its root.
+        #   KHDT-to-Roster/KHDT-to-Roster.exe
+        # or a flat bundle with KHDT-to-Roster.exe at its root.
         candidates = list(extract_dir.rglob(current_exe.name))
         if not candidates:
             candidates = list(extract_dir.rglob("*.exe"))
@@ -306,7 +306,7 @@ def apply_update(new_exe_path: Path) -> None:
 
     # Remove artifacts left by an older updater that stopped before cleanup.
     # Only the updater's own prefixes are targeted; user ZIP files are kept.
-    for stale_dir in current_exe.parent.glob("_amos_update_*"):
+    for stale_dir in current_exe.parent.glob("_khdt_update_*"):
         if stale_dir.is_dir():
             shutil.rmtree(stale_dir, ignore_errors=True)
     for stale_archive in current_exe.parent.glob("_update_*.zip"):
@@ -326,8 +326,8 @@ def apply_update(new_exe_path: Path) -> None:
         extract_dir = None
 
     if platform.system() == "Windows":
-        bat_path = current_exe.parent / "_amos_updater.bat"
-        updater_log = current_exe.parent / "_amos_updater.log"
+        bat_path = current_exe.parent / "_khdt_updater.bat"
+        updater_log = current_exe.parent / "_khdt_updater.log"
         if is_zip:
             # robocopy copies the complete onedir bundle and preserves user
             # folders such as INPUT and DATA that are not part of the release.
@@ -352,7 +352,7 @@ def apply_update(new_exe_path: Path) -> None:
             f'set "APP_DIR={current_exe.parent}"\n'
             f'set "APP_PID={os.getpid()}"\n'
             f'set "LOG_FILE={updater_log}"\n'
-            'echo [%date% %time%] AMOS Validator updater started.>>"%LOG_FILE%"\n'
+            'echo [%date% %time%] KHDT to Roster updater started.>>"%LOG_FILE%"\n'
             'echo Waiting for the previous process to exit...>>"%LOG_FILE%"\n'
             ":wait_for_exit\n"
             'for /f "tokens=2" %%P in (\'tasklist /FI "PID eq %APP_PID%" /NH\') do (\n'
@@ -511,6 +511,6 @@ def check_in_background(
         info = check_for_update(verbose=verbose)
         callback(info)
 
-    t = threading.Thread(target=_worker, daemon=True, name="amos-update-check")
+    t = threading.Thread(target=_worker, daemon=True, name="khdt-update-check")
     t.start()
     return t

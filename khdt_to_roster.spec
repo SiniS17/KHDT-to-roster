@@ -4,20 +4,30 @@
 #   pyinstaller --clean --noconfirm khdt_to_roster.spec
 #
 # This intentionally creates an onedir build, not a one-file executable.
-# Keep the complete dist/KHDT-to-Roster/ folder when distributing it.
+# Keep the complete EXE/KHDT-to-Roster/ folder when distributing it.
 #
 # Put a .png, Windows .ico, or macOS .icns in assets/ (or attached_assets/)
 # before building if you want a custom application icon. PNG files are
 # converted to ICO automatically for Windows builds.
+#
+# Output goes to EXE/ next to this spec file (instead of the default
+# dist/), and the intermediate build/ folder is deleted automatically
+# once the build finishes.
 
+import shutil
 from pathlib import Path
 import sys
 
+import PyInstaller.config
 from PIL import Image
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 
 PROJECT_DIR = Path(SPECPATH).resolve()
+BUILD_DIR = PROJECT_DIR / "build"
+
+# Send COLLECT's output to EXE/ instead of the default dist/.
+PyInstaller.config.CONF["distpath"] = str(PROJECT_DIR / "EXE")
 ICON_CANDIDATES = [
     path
     for folder in (
@@ -35,7 +45,7 @@ if ICON_CANDIDATES:
     icon_source = ICON_CANDIDATES[0]
     ICON_DATA = [(str(icon_source), icon_source.parent.name)]
     if icon_source.suffix.lower() == ".png" and sys.platform == "win32":
-        converted_icon = PROJECT_DIR / "build" / "khdt_to_roster_icon.ico"
+        converted_icon = BUILD_DIR / "khdt_to_roster_icon.ico"
         converted_icon.parent.mkdir(parents=True, exist_ok=True)
         with Image.open(icon_source) as image:
             image.convert("RGBA").save(
@@ -92,3 +102,7 @@ coll = COLLECT(
     upx=False,
     name="KHDT-to-Roster",
 )
+
+# Build is complete at this point (Analysis/EXE/COLLECT run immediately as
+# the spec executes) - safe to remove the intermediate build/ folder now.
+shutil.rmtree(BUILD_DIR, ignore_errors=True)

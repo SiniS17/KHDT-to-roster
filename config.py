@@ -5,8 +5,8 @@
 # Bump this string before each release and tag the GitHub
 # release with the same value prefixed by "v" (e.g. "v1.0.0").
 # ------------------------------------------------------------
-APP_VERSION = "1.0.0"
-APP_LAST_UPDATE = "29 AUG 26"
+APP_VERSION = "1.0.2"
+APP_LAST_UPDATE = "31 AUG 26"
 
 # ------------------------------------------------------------
 # Auto-update settings
