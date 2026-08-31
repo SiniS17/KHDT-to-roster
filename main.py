@@ -26,14 +26,14 @@ updated roster (named "<original roster name>_updated.xlsx") plus a
 ".log.xlsx" workbook with the full run log. A summary also prints to the
 console / pops up in a message box.
 
-If there's no INPUT/ folder, it falls back to a simple file-picker dialog,
-or you can still pass paths explicitly:
+If there's no INPUT/ folder and no paths are provided, it opens the PyQt6 GUI,
+or you can pass paths explicitly:
 
     python main.py path\\to\\KHDT.xlsx path\\to\\Roster.xlsx [--force] [-o out.xlsx]
 
-Designed to be frozen into a standalone .exe with PyInstaller, e.g.:
+Designed to be frozen into a fast one-directory application with PyInstaller:
 
-    pyinstaller --onefile main.py
+    pyinstaller --clean --noconfirm khdt_to_roster.spec
 
 (Leave off --noconsole if you want the console window to stay open and
 show progress/errors as it runs - the script pauses for Enter at the end
@@ -837,7 +837,13 @@ def find_input_files(input_dir):
     and exactly one whose name contains "roster" (case-insensitive).
     Returns (khdt_path_or_None, roster_path_or_None, list_of_problem_strings).
     """
-    xlsx_files = [p for p in input_dir.glob("*.xlsx") if not p.name.startswith("~$")]
+    xlsx_files = [
+        p
+        for p in input_dir.iterdir()
+        if p.is_file()
+        and p.suffix.lower() in {".xlsx", ".xlsm"}
+        and not p.name.startswith("~$")
+    ]
     khdt_matches = [p for p in xlsx_files if "khdt" in p.stem.lower()]
     roster_matches = [p for p in xlsx_files if "roster" in p.stem.lower()]
 
@@ -997,23 +1003,8 @@ def main():
 
     khdt_path, roster_path, output_path = args.khdt, args.roster, args.output
 
-    def have_tk():
-        try:
-            import tkinter  # noqa: F401
-            return True
-        except ImportError:
-            return False
-
     def report_fatal(msg):
         print(msg)
-        if have_tk():
-            import tkinter as tk
-            from tkinter import messagebox
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showerror("Error", msg)
-        else:
-            input("Press Enter to exit...")
 
     # -------------------------------------------------------------
     # 1) Explicit CLI args always win.
@@ -1046,6 +1037,10 @@ def main():
     if input_dir.is_dir():
         found_khdt, found_roster, problems = find_input_files(input_dir)
         if problems:
+            if not khdt_path and not roster_path:
+                from gui import launch_gui
+                launch_gui()
+                return
             report_fatal("Couldn't auto-detect the input files in " + str(input_dir) + ":\n- " + "\n- ".join(problems))
             return
 
@@ -1084,65 +1079,17 @@ def main():
             f"Full log:\n{log_path}"
         )
         print(summary)
-        if have_tk():
-            import tkinter as tk
-            from tkinter import messagebox
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showinfo("Done", summary)
-        else:
-            input("Press Enter to exit...")
         return
 
     # -------------------------------------------------------------
-    # 3) No INPUT/ folder and no CLI args -> fall back to a simple
-    #    file-picker so the tool is still usable elsewhere.
+    # 3) No INPUT/ folder and no CLI args -> open the PyQt6 GUI.
     # -------------------------------------------------------------
-    if not have_tk():
-        parser.error("khdt and roster paths are required (no CLI args, no INPUT/ folder, and no tkinter available)")
-        return
-
-    import tkinter as tk
-    from tkinter import filedialog, messagebox
-
-    root = tk.Tk()
-    root.withdraw()
-    if not khdt_path:
-        khdt_path = filedialog.askopenfilename(title="Select the KHDT (training plan) file", filetypes=[("Excel files", "*.xlsx")])
-    if not roster_path:
-        roster_path = filedialog.askopenfilename(title="Select the Roster file", filetypes=[("Excel files", "*.xlsx")])
-    if not khdt_path or not roster_path:
-        return
-
-    log_lines = []
-    event_log = {}
     try:
-        out_path, stats = run(
-            khdt_path,
-            roster_path,
-            output_path,
-            args.force,
-            log=log_lines.append,
-            event_log=event_log,
-        )
-    except Exception as e:
-        messagebox.showerror("Error", f"{type(e).__name__}: {e}")
+        from gui import launch_gui
+    except ImportError as exc:
+        parser.error(f"PyQt6 is required for the GUI: {exc}")
         return
-
-    summary = (
-        f"Marked: {stats['marked']}\n"
-        f"Weekend N cells: {stats['weekend_n']}\n"
-        f"Overlaps combined: {stats['overlaps_combined']}\n"
-        f"Conflicts noted: {stats['conflicts']}\n"
-        f"ID not in roster: {stats['no_id_match']}\n"
-        f"No date overlap: {stats['no_date_overlap']}\n"
-        f"Name/ID mismatches: {stats['name_mismatch']}\n\n"
-        f"Saved to:\n{out_path}"
-    )
-    messagebox.showinfo("Done", summary)
-
-    log_path = Path(out_path).with_suffix(".log.xlsx")
-    write_log_workbook(log_path, event_log, log_lines, stats)
+    launch_gui()
 
 
 if __name__ == "__main__":

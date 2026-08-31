@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 
 from PyQt6.QtCore import QMimeData, QObject, QRunnable, QThreadPool, QUrl, Qt, pyqtSignal
-from PyQt6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent, QFont
+from PyQt6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent, QFont, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -35,6 +35,24 @@ import update as updater
 
 
 EXCEL_FILTER = "Excel workbooks (*.xlsx *.xlsm);;All files (*)"
+
+
+def _find_app_icon() -> Path | None:
+    """Find the source icon in development or the bundled onedir folder."""
+    roots = [
+        Path(getattr(sys, "_MEIPASS", "")),
+        get_base_dir(),
+        Path(__file__).resolve().parent,
+    ]
+    for root in roots:
+        if not root:
+            continue
+        for folder in ("asset", "assets", "attached_assets"):
+            for suffix in (".png", ".ico"):
+                candidate = root / folder / f"icon{suffix}"
+                if candidate.is_file():
+                    return candidate
+    return None
 
 
 class DropZone(QFrame):
@@ -433,6 +451,9 @@ class MainWindow(QMainWindow):
 def launch_gui() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("KHDT to Roster")
+    icon_path = _find_app_icon()
+    if icon_path:
+        app.setWindowIcon(QIcon(str(icon_path)))
     app.setStyle("Fusion")
     app.setStyleSheet(
         """

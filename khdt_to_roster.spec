@@ -30,8 +30,10 @@ ICON_CANDIDATES = [
     if path.is_file() and path.suffix.lower() in {".png", ".ico", ".icns"}
 ]
 ICON_PATH = None
+ICON_DATA = []
 if ICON_CANDIDATES:
     icon_source = ICON_CANDIDATES[0]
+    ICON_DATA = [(str(icon_source), icon_source.parent.name)]
     if icon_source.suffix.lower() == ".png" and sys.platform == "win32":
         converted_icon = PROJECT_DIR / "build" / "khdt_to_roster_icon.ico"
         converted_icon.parent.mkdir(parents=True, exist_ok=True)
@@ -52,7 +54,7 @@ a = Analysis(
     ["gui.py"],
     pathex=[str(PROJECT_DIR)],
     binaries=pyqt_binaries,
-    datas=pyqt_datas + copy_metadata("PyQt6"),
+    datas=pyqt_datas + copy_metadata("PyQt6") + ICON_DATA,
     hiddenimports=pyqt_hiddenimports,
     hookspath=[],
     hooksconfig={},
