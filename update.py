@@ -49,17 +49,13 @@ from typing import Callable, Optional
 # fully initialised (e.g. called from a spec file during build).
 # ---------------------------------------------------------------------------
 try:
-    from doc_validator.config import (
-        APP_VERSION,
-        BASE_DIR,
-        GITHUB_REPO,
-        UPDATE_CHECK_ENABLED,
-    )
+    from config import APP_VERSION, GITHUB_REPO, UPDATE_CHECK_ENABLED
+    BASE_DIR = Path(__file__).resolve().parent
 except ImportError:
     APP_VERSION = "0.0.0"
     BASE_DIR = Path(__file__).parent
-    GITHUB_REPO = "SiniS17/Amos-filter-software"
-    UPDATE_CHECK_ENABLED = bool(GITHUB_REPO)
+    GITHUB_REPO = ""
+    UPDATE_CHECK_ENABLED = False
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +95,15 @@ _HEADERS = {
 }
 
 
+def _request_headers() -> dict[str, str]:
+    """Return GitHub headers, adding the optional private-repo token."""
+    headers = dict(_HEADERS)
+    token = os.environ.get("GITHUB_UPDATE_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def check_for_update(timeout: int = 6, verbose: bool = False) -> Optional[dict]:
     """
     Query GitHub Releases and return update info if a newer version exists.
@@ -123,7 +128,7 @@ def check_for_update(timeout: int = 6, verbose: bool = False) -> Optional[dict]:
     try:
         _log("Checking GitHub for the latest published release...")
         url = GITHUB_API.format(repo=GITHUB_REPO)
-        req = urllib.request.Request(url, headers=_HEADERS)
+        req = urllib.request.Request(url, headers=_request_headers())
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data: dict = json.loads(resp.read())
 
@@ -210,7 +215,7 @@ def download_update(
     Returns True on success, False on any error.
     """
     try:
-        req = urllib.request.Request(download_url, headers=_HEADERS)
+        req = urllib.request.Request(download_url, headers=_request_headers())
         with urllib.request.urlopen(req) as resp:
             total = int(resp.headers.get("Content-Length", 0))
             downloaded = 0

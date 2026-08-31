@@ -1,3 +1,5 @@
 *.zip
 /INPUT
 /OUTPUT
+/build
+/dist

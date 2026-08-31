@@ -15,7 +15,7 @@ APP_LAST_UPDATE = "29 AUG 26"
 # For private repos add a fine-grained token with "Contents: read"
 # permission as an env-var called GITHUB_UPDATE_TOKEN.
 # ------------------------------------------------------------
-GITHUB_REPO = "SiniS17/KHDT to Roster"          # ← fill this in, e.g. "acme/amos-validator"
+GITHUB_REPO = "SiniS17/KHDT-to-roster"          # ← fill this in, e.g. "acme/amos-validator"
 UPDATE_CHECK_ENABLED = bool(GITHUB_REPO)   # auto-disabled when repo is blank
 
 
